@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment Data Explorer</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="static/report/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Recruitment Data Explorer</h1>
+        <a href="/index_report" class="btn btn-outline-secondary ms-2">Back to Dashboard</a>
+        
+        <div class="query-container">
+            <form id="query-form">
+                <div class="mb-3">
+                    <label for="natural-query" class="form-label">What would you like to know about your recruitment data?</label>
+                    <input type="text" class="form-control form-control-lg" id="natural-query" 
+                           placeholder="Hi Adwoa, ask me a question" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">Analyze</button>
+            </form>
+            
+            <div class="example-queries mt-3">
+                <h5>Example Queries:</h5>
+                <ul>
+                    <li class="example-query">Show me the distribution of candidates by current status</li>
+                    <li class="example-query">How many candidates were added in the last 30 days?</li>
+                    <li class="example-query">What positions have the most candidates?</li>
+                    <li class="example-query">Show me the candidates in CV Review stage</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Analyzing your query...</p>
+        </div>
+        
+        <div class="result-container" id="result-section" style="display: none;">
+            <h2 id="result-title">Results</h2>
+            
+            <div class="mb-3">
+                <h4>SQL Query Used</h4>
+                <div id="sql-query"></div>
+            </div>
+            
+            <div id="visualization"></div>
+            
+            <div class="mt-4" id="data-table-container">
+                <h4>Data</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped" id="data-table">
+                        <thead id="table-head"></thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        $(document).ready(function() {
+            $('.loading').hide(); // Hide loading indicator on initial page load
+            
+            $('#query-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const query = $('#natural-query').val();
+                if (!query) return;
+                
+                // Show loading
+                $('.loading').show();
+                $('#result-section').hide();
+                
+                // Send query to server
+                $.ajax({
+                    url: '/query',
+                    method: 'POST',
+                    data: { query: query },
+                    success: function(response) {
+                        $('.loading').hide();
+                        
+                        if (response.status === 'success') {
+                            // Show results
+                            $('#result-section').show();
+                            $('#result-title').text('Results for: ' + query);
+                            $('#sql-query').text(response.sql_query);
+                            
+                            // Create visualization
+                            const graphData = JSON.parse(response.graph_json);
+                            Plotly.newPlot('visualization', graphData.data, graphData.layout);
+                            
+                            // Populate data table
+                            if (response.data && response.data.length > 0) {
+                                const tableHead = $('#table-head');
+                                const tableBody = $('#table-body');
+                                
+                                // Clear previous data
+                                tableHead.empty();
+                                tableBody.empty();
+                                
+                                // Add headers
+                                let headerRow = $('<tr></tr>');
+                                const headers = Object.keys(response.data[0]);
+                                headers.forEach(header => {
+                                    headerRow.append($(`<th>${header}</th>`));
+                                });
+                                tableHead.append(headerRow);
+                                
+                                // Add data rows
+                                response.data.forEach(row => {
+                                    let tableRow = $('<tr></tr>');
+                                    headers.forEach(header => {
+                                        tableRow.append($(`<td>${row[header]}</td>`));
+                                    });
+                                    tableBody.append(tableRow);
+                                });
+                            }
+                        } else {
+                            alert('Error: ' + response.message);
+                        }
+                    },
+                    error: function(error) {
+                        $('.loading').hide();
+                        alert('Error processing your query. Please try again.');
+                        console.error(error);
+                    }
+                });
+            });
+            
+            // Example query click functionality
+            $('.example-query').on('click', function() {
+                $('#natural-query').val($(this).text());
+                // Optional: Submit the form automatically
+                // $('#query-form').submit();
+            });
+        });
+    </script>
+</body>
+</html>

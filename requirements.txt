@@ -1,0 +1,10 @@
+flask
+flask-sqlalchemy
+werkzeug
+PyPDF2
+python-docx
+gunicorn
+plotly
+markdown
+groq
+requests
